@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Esports Dark Theme */
+    --background: 214 32% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 214 28% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 214 32% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Blue Side - Primary */
+    --primary: 191 97% 53%;
+    --primary-foreground: 214 32% 8%;
+
+    /* Red Side - Secondary */
+    --secondary: 0 72% 60%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 214 20% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    /* Gold Highlight - Accent */
+    --accent: 44 92% 63%;
+    --accent-foreground: 214 32% 8%;
+
+    --destructive: 0 72% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 20% 20%;
+    --input: 214 20% 18%;
+    --ring: 191 97% 53%;
+
+    --radius: 0.75rem;
+
+    /* Custom esports colors */
+    --blue-team: 191 97% 53%;
+    --red-team: 0 72% 60%;
+    --gold: 44 92% 63%;
+    --silver: 214 10% 50%;
+    
+    /* Gradients */
+    --gradient-blue: linear-gradient(135deg, hsl(191 97% 53% / 0.2), hsl(191 97% 53% / 0.05));
+    --gradient-red: linear-gradient(135deg, hsl(0 72% 60% / 0.2), hsl(0 72% 60% / 0.05));
+    --gradient-gold: linear-gradient(135deg, hsl(44 92% 63% / 0.2), hsl(44 92% 63% / 0.05));
+    
+    /* Shadows */
+    --shadow-blue: 0 0 20px hsl(191 97% 53% / 0.3);
+    --shadow-red: 0 0 20px hsl(0 72% 60% / 0.3);
+    --shadow-gold: 0 0 15px hsl(44 92% 63% / 0.2);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-card/50 backdrop-blur-md border border-border/50;
+  }
+  
+  .glow-blue {
+    box-shadow: var(--shadow-blue);
+  }
+  
+  .glow-red {
+    box-shadow: var(--shadow-red);
+  }
+  
+  .glow-gold {
+    box-shadow: var(--shadow-gold);
+  }
+}
