@@ -1,7 +1,0 @@
-project_id = "fdfzdxmusxyrktwqjxvn"
-
-[functions.draft-analysis]
-verify_jwt = false
-
-[functions.champion-build]
-verify_jwt = false

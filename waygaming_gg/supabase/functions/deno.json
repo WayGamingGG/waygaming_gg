@@ -1,7 +1,0 @@
-{
-  "nodeModulesDir": "auto",
-  "compilerOptions": {
-    "lib": ["deno.window"],
-    "jsx": "react-jsx"
-  }
-}
