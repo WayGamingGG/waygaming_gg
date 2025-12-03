@@ -74,6 +74,7 @@ export default function WayPoints() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [newContestDialogOpen, setNewContestDialogOpen] = useState(false);
   const [newContestDuration, setNewContestDuration] = useState("4");
+  const [endContestDialogOpen, setEndContestDialogOpen] = useState(false);
 
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
@@ -525,6 +526,47 @@ export default function WayPoints() {
     return `${start.toLocaleDateString("pt-BR")} - ${end.toLocaleDateString("pt-BR")} (${periodSettings.duration_months} meses)`;
   };
 
+  const handleEndContest = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (!periodSettings) return;
+
+      const { data: newPeriod, error } = await supabase
+        .from("way_points_settings")
+        .insert({
+          period_start_date: new Date().toISOString(),
+          period_number: periodSettings.period_number + 1,
+          duration_months: periodSettings.duration_months,
+          created_by: user.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast.error("Erro ao encerrar concurso");
+        console.error(error);
+        return;
+      }
+
+      toast.success(`Concurso encerrado! Novo período #${newPeriod.period_number} iniciado`);
+      setEndContestDialogOpen(false);
+      setPeriodSettings(newPeriod);
+      await loadData();
+    } catch (error: any) {
+      toast.error("Erro ao encerrar concurso");
+      console.error(error);
+    }
+  };
+
+  const getPositionLabel = (index: number) => {
+    if (index === 0) return "🥇 1º Lugar";
+    if (index === 1) return "🥈 2º Lugar";
+    if (index === 2) return "🥉 3º Lugar";
+    return `${index + 1}º Lugar`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -591,6 +633,15 @@ export default function WayPoints() {
             </Dialog>
             
             <Button 
+              variant="secondary" 
+              onClick={() => setEndContestDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Award className="h-4 w-4" />
+              Encerrar Concurso
+            </Button>
+            
+            <Button 
               variant="destructive" 
               onClick={() => setResetDialogOpen(true)}
               className="flex items-center gap-2"
@@ -600,6 +651,65 @@ export default function WayPoints() {
             </Button>
           </div>
         </div>
+
+        {/* End Contest Dialog with Results */}
+        <AlertDialog open={endContestDialogOpen} onOpenChange={setEndContestDialogOpen}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Trophy className="h-6 w-6 text-yellow-500" />
+                Encerrar Concurso - Período #{periodSettings?.period_number}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Resultado final do concurso Way Points
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            
+            <div className="py-4 space-y-3 max-h-96 overflow-y-auto">
+              {ranking.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">
+                  Nenhum participante neste período
+                </p>
+              ) : (
+                ranking.map((entry, index) => (
+                  <div
+                    key={entry.player_id}
+                    className={`flex items-center justify-between p-4 rounded-lg border ${
+                      index === 0 ? "bg-yellow-500/10 border-yellow-500/30" :
+                      index === 1 ? "bg-gray-400/10 border-gray-400/30" :
+                      index === 2 ? "bg-orange-600/10 border-orange-600/30" :
+                      "bg-card"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-bold min-w-[120px]">
+                        {getPositionLabel(index)}
+                      </span>
+                      <div>
+                        <p className="font-semibold">{entry.player_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {entry.participation_days} dias • {entry.assignments_count} atribuições
+                          {entry.is_new_player && <Badge variant="secondary" className="ml-2 text-xs">Novo</Badge>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-primary">{entry.score} pts</p>
+                      <p className="text-sm text-muted-foreground">{entry.total_points} total</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleEndContest} className="bg-primary">
+                Confirmar e Iniciar Novo Período
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Tabs defaultValue="ranking" className="space-y-4">
           <TabsList>

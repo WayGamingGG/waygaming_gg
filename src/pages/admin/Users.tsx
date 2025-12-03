@@ -24,6 +24,9 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [editForm, setEditForm] = useState({ full_name: "", role: "" });
   const [newUser, setNewUser] = useState({ email: "", password: "", full_name: "", role: "player" });
   const { toast } = useToast();
 
@@ -209,6 +212,68 @@ export default function AdminUsers() {
     }
   };
 
+  const handleOpenEditDialog = (user: Profile) => {
+    setEditingUser(user);
+    setEditForm({
+      full_name: user.full_name || "",
+      role: user.roles[0] || "player"
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleEditUser = async () => {
+    if (!editingUser) return;
+
+    try {
+      // Update profile name
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: editForm.full_name.trim() })
+        .eq("id", editingUser.id);
+
+      if (profileError) throw profileError;
+
+      // Update role if changed
+      const currentRole = editingUser.roles[0];
+      if (editForm.role !== currentRole) {
+        // Delete existing role
+        if (currentRole) {
+          await supabase
+            .from("user_roles")
+            .delete()
+            .eq("user_id", editingUser.id);
+        }
+
+        // Insert new role
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({
+            user_id: editingUser.id,
+            role: editForm.role as "admin" | "coach" | "player",
+            created_by: user?.id
+          });
+
+        if (roleError) throw roleError;
+      }
+
+      toast({
+        title: "Usuário atualizado",
+        description: `${editingUser.email} foi atualizado com sucesso.`
+      });
+
+      setShowEditDialog(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao editar usuário",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return <div className="container mx-auto p-6">Carregando...</div>;
   }
@@ -278,15 +343,24 @@ export default function AdminUsers() {
                           onClick={() => handleApproveUser(user.id, user.email)}
                           title="Aprovar usuário"
                         >
-                          <Edit className="h-4 w-4 text-primary" />
+                          ✓
                         </Button>
                       )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        onClick={() => handleOpenEditDialog(user)}
+                        title="Editar usuário"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        title="Deletar usuário"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </TableCell>
@@ -355,6 +429,47 @@ export default function AdminUsers() {
               Cancelar
             </Button>
             <Button onClick={handleCreateUser}>Criar Usuário</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Editar dados de {editingUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_full_name">Nome Completo</Label>
+              <Input
+                id="edit_full_name"
+                value={editForm.full_name}
+                onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_role">Role</Label>
+              <Select value={editForm.role} onValueChange={(value) => setEditForm({ ...editForm, role: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="coach">Coach</SelectItem>
+                  <SelectItem value="player">Player</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditUser}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
