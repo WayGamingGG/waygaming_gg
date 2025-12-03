@@ -11,65 +11,79 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+    // Client para validar token do usuário (ANON KEY)
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!
     )
 
-    // Verify the user making the request is an admin
-    const authHeader = req.headers.get('Authorization')!
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
+    // Client admin para deletar usuário (SERVICE ROLE)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
 
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Verifica token do usuário
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    // Check if user is admin
-    const { data: roles, error: rolesError } = await supabaseClient
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token)
+
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Verifica se o usuário é admin
+    const { data: role, error: rolesError } = await supabaseAuth
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
       .single()
 
-    if (rolesError || !roles) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (rolesError || !role) {
+      return new Response(JSON.stringify({ error: 'Forbidden - admin only' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
+    // Recebe o ID do usuário a deletar
     const { userId } = await req.json()
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Missing userId in request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
-    // Delete the user
-    const { error: deleteError } = await supabaseClient.auth.admin.deleteUser(userId)
+    // Deleta o usuário usando client admin
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (deleteError) {
-      return new Response(
-        JSON.stringify({ error: deleteError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return new Response(JSON.stringify({ error: deleteError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 })
